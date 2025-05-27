@@ -24,62 +24,41 @@
 <body>
     <div class="container">
         <h2 id="month-title">Загрузка графика...</h2>
-        <div class="legend" id="legend"></div>
         <div id="schedule-table"></div>
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.ready();
+        document.addEventListener('DOMContentLoaded', () => {
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+            tg.ready();
 
-        // Функция для декодирования параметров
-        function decodeParams() {
+            // 1. Пробуем получить данные из URL
             const urlParams = new URLSearchParams(window.location.search);
-            const encodedData = urlParams.get('data');
-            if (!encodedData) return null;
+            const jsonData = urlParams.get('data');
 
-            try {
-                return JSON.parse(atob(encodedData));
-            } catch (e) {
-                console.error('Error decoding data:', e);
-                return null;
+            if (jsonData) {
+                try {
+                    const data = JSON.parse(jsonData);
+                    renderSchedule(data);
+                    return;
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                }
             }
-        }
 
-        // Функция отображения графика
+            // 2. Если не получилось - показываем ошибку
+            document.getElementById('schedule-table').innerHTML =
+                '<p>Ошибка загрузки данных. Пожалуйста, сообщите администратору.</p>';
+        });
+
         function renderSchedule(data) {
-            if (!data) {
-                document.getElementById('schedule-table').innerHTML =
-                    '<p>Ошибка загрузки данных. Пожалуйста, попробуйте позже.</p>';
-                return;
-            }
-
             const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
                               "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
             document.getElementById('month-title').textContent =
                 `График работы на ${monthNames[data.month - 1]} ${data.year}`;
 
-            // Создаем легенду
-            const legendItems = [
-                {class: 'workday', label: 'Р - Рабочий день'},
-                {class: 'dayoff', label: 'В - Выходной'},
-                {class: 'sick', label: 'Б - Больничный'},
-                {class: 'vacation', label: 'О - Отпуск'},
-                {class: 'workday9', label: 'Р9 - С 9:00'}
-            ];
-
-            const legendHTML = legendItems.map(item => `
-                <div class="legend-item">
-                    <div class="legend-color ${item.class}"></div>
-                    <span>${item.label}</span>
-                </div>
-            `).join('');
-
-            document.getElementById('legend').innerHTML = legendHTML;
-
-            // Создаем таблицу
             let html = '<table><tr><th>Сотрудник</th>';
 
             // Заголовки дней
@@ -90,7 +69,7 @@
 
             // Данные по сотрудникам
             for (const [worker, schedule] of Object.entries(data.schedules)) {
-                const shortName = worker.split(' ')[0]; // Берем только фамилию
+                const shortName = worker.split(' ')[0];
                 html += `<tr><td>${shortName}</td>`;
 
                 for (let day = 0; day < 31; day++) {
@@ -116,12 +95,6 @@
             html += '</table>';
             document.getElementById('schedule-table').innerHTML = html;
         }
-
-        // Загружаем данные при открытии
-        document.addEventListener('DOMContentLoaded', () => {
-            const scheduleData = decodeParams();
-            renderSchedule(scheduleData);
-        });
     </script>
 </body>
 </html>
