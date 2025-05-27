@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График работы</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .workday { background-color: #d4edda; }
+        .dayoff { background-color: #f8d7da; }
+        .sick { background-color: #fff3cd; }
+        .vacation { background-color: #cce5ff; }
+        .workday9 { background-color: #d1ecf1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="month-title">График работы</h2>
+        <div id="schedule-table"></div>
+    </div>
+
+    <script>
+        // Получаем данные из Telegram WebApp
+        const tg = window.Telegram.WebApp;
+
+        // Если данные переданы через initData
+        if (tg.initDataUnsafe) {
+            const scheduleData = JSON.parse(tg.initDataUnsafe.schedule || '{}');
+            renderSchedule(scheduleData);
+        }
+
+        // Функция для отображения графика
+        function renderSchedule(data) {
+            if (!data || !data.schedules) {
+                document.getElementById('schedule-table').innerHTML = '<p>Данные не загружены</p>';
+                return;
+            }
+
+            const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                              "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+
+            document.getElementById('month-title').textContent =
+                `График работы на ${monthNames[data.month - 1]} ${data.year}`;
+
+            let html = '<table><tr><th>Сотрудник</th>';
+
+            // Заголовки дней
+            for (let day = 1; day <= data.daysInMonth; day++) {
+                html += `<th>${day}</th>`;
+            }
+            html += '</tr>';
+
+            // Данные по сотрудникам
+            for (const [worker, schedule] of Object.entries(data.schedules)) {
+                const lastName = worker.split(' ')[0];
+                html += `<tr><td>${lastName}</td>`;
+
+                for (let day = 0; day < data.daysInMonth; day++) {
+                    const dayType = schedule[day] || '';
+                    let cellClass = '';
+                    let displayText = '';
+
+                    switch(dayType) {
+                        case 'Р': cellClass = 'workday'; displayText = 'Р'; break;
+                        case 'В': cellClass = 'dayoff'; displayText = 'В'; break;
+                        case 'Б': cellClass = 'sick'; displayText = 'Б'; break;
+                        case 'О': cellClass = 'vacation'; displayText = 'О'; break;
+                        case 'Р(с9)': cellClass = 'workday9'; displayText = 'Р9'; break;
+                        default: displayText = '';
+                    }
+
+                    html += `<td class="${cellClass}">${displayText}</td>`;
+                }
+
+                html += '</tr>';
+            }
+
+            html += '</table>';
+            document.getElementById('schedule-table').innerHTML = html;
+        }
+
+        // Готовим WebApp к отображению
+        tg.expand();
+        tg.ready();
+    </script>
+</body>
+</html>
