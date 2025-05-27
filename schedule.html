@@ -6,56 +6,52 @@
     <title>График работы</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 10px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 8px;
-            text-align: center;
-            border: 1px solid #ddd;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
+        body { font-family: Arial, sans-serif; padding: 10px; }
+        .container { background: white; border-radius: 10px; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 8px; text-align: center; border: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
         .workday { background-color: #d4edda; }
         .dayoff { background-color: #f8d7da; }
         .sick { background-color: #fff3cd; }
         .vacation { background-color: #cce5ff; }
         .workday9 { background-color: #d1ecf1; }
+        .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; }
+        .legend-item { display: flex; align-items: center; }
+        .legend-color { width: 20px; height: 20px; margin-right: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2 id="month-title">График работы</h2>
+        <h2 id="month-title">Загрузка графика...</h2>
+        <div class="legend" id="legend"></div>
         <div id="schedule-table"></div>
     </div>
 
     <script>
-        // Получаем данные из Telegram WebApp
         const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
 
-        // Если данные переданы через initData
-        if (tg.initDataUnsafe) {
-            const scheduleData = JSON.parse(tg.initDataUnsafe.schedule || '{}');
-            renderSchedule(scheduleData);
+        // Функция для декодирования параметров
+        function decodeParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            if (!encodedData) return null;
+
+            try {
+                return JSON.parse(atob(encodedData));
+            } catch (e) {
+                console.error('Error decoding data:', e);
+                return null;
+            }
         }
 
-        // Функция для отображения графика
+        // Функция отображения графика
         function renderSchedule(data) {
-            if (!data || !data.schedules) {
-                document.getElementById('schedule-table').innerHTML = '<p>Данные не загружены</p>';
+            if (!data) {
+                document.getElementById('schedule-table').innerHTML =
+                    '<p>Ошибка загрузки данных. Пожалуйста, попробуйте позже.</p>';
                 return;
             }
 
@@ -65,20 +61,39 @@
             document.getElementById('month-title').textContent =
                 `График работы на ${monthNames[data.month - 1]} ${data.year}`;
 
+            // Создаем легенду
+            const legendItems = [
+                {class: 'workday', label: 'Р - Рабочий день'},
+                {class: 'dayoff', label: 'В - Выходной'},
+                {class: 'sick', label: 'Б - Больничный'},
+                {class: 'vacation', label: 'О - Отпуск'},
+                {class: 'workday9', label: 'Р9 - С 9:00'}
+            ];
+
+            const legendHTML = legendItems.map(item => `
+                <div class="legend-item">
+                    <div class="legend-color ${item.class}"></div>
+                    <span>${item.label}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('legend').innerHTML = legendHTML;
+
+            // Создаем таблицу
             let html = '<table><tr><th>Сотрудник</th>';
 
             // Заголовки дней
-            for (let day = 1; day <= data.daysInMonth; day++) {
+            for (let day = 1; day <= 31; day++) {
                 html += `<th>${day}</th>`;
             }
             html += '</tr>';
 
             // Данные по сотрудникам
             for (const [worker, schedule] of Object.entries(data.schedules)) {
-                const lastName = worker.split(' ')[0];
-                html += `<tr><td>${lastName}</td>`;
+                const shortName = worker.split(' ')[0]; // Берем только фамилию
+                html += `<tr><td>${shortName}</td>`;
 
-                for (let day = 0; day < data.daysInMonth; day++) {
+                for (let day = 0; day < 31; day++) {
                     const dayType = schedule[day] || '';
                     let cellClass = '';
                     let displayText = '';
@@ -102,9 +117,11 @@
             document.getElementById('schedule-table').innerHTML = html;
         }
 
-        // Готовим WebApp к отображению
-        tg.expand();
-        tg.ready();
+        // Загружаем данные при открытии
+        document.addEventListener('DOMContentLoaded', () => {
+            const scheduleData = decodeParams();
+            renderSchedule(scheduleData);
+        });
     </script>
 </body>
 </html>
